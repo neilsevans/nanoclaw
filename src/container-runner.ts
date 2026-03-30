@@ -221,30 +221,33 @@ function buildContainerArgs(
   // Pass host timezone so container's local time matches the user's
   args.push('-e', `TZ=${TIMEZONE}`);
 
-  // Route API traffic through the credential proxy (containers never see real secrets)
-  args.push(
-    '-e',
-    `ANTHROPIC_BASE_URL=http://${CONTAINER_HOST_GATEWAY}:${CREDENTIAL_PROXY_PORT}`,
-  );
-
-  // Mirror the host's auth method with a placeholder value.
-  // API key mode: SDK sends x-api-key, proxy replaces with real key.
-  // OAuth mode:   SDK exchanges placeholder token for temp API key,
-  //               proxy injects real OAuth token on that exchange request.
-  const authMode = detectAuthMode();
-  if (authMode === 'api-key') {
-    args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
-  } else {
-    args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
-  }
-
-  // Ollama routing for cost-free local inference
-  // Agent-runner exposes ollama_generate MCP tool. CLAUDE.md instructs when to use it.
+  // Ollama routing for cost-free local inference (takes priority)
   const ollamaHost = process.env.OLLAMA_HOST;
   const ollamaModel = process.env.OLLAMA_MODEL;
-  if (ollamaHost && ollamaModel) {
+  const useOllama = ollamaHost && ollamaModel;
+
+  if (useOllama) {
+    // When Ollama is configured, use it exclusively (don't provide API credentials)
     args.push('-e', `OLLAMA_HOST=${ollamaHost}`);
     args.push('-e', `OLLAMA_MODEL=${ollamaModel}`);
+    // NO API key — force Claude Code to use ollama_generate MCP tool
+  } else {
+    // Fall back to Claude API if Ollama not configured
+    args.push(
+      '-e',
+      `ANTHROPIC_BASE_URL=http://${CONTAINER_HOST_GATEWAY}:${CREDENTIAL_PROXY_PORT}`,
+    );
+
+    // Mirror the host's auth method with a placeholder value.
+    // API key mode: SDK sends x-api-key, proxy replaces with real key.
+    // OAuth mode:   SDK exchanges placeholder token for temp API key,
+    //               proxy injects real OAuth token on that exchange request.
+    const authMode = detectAuthMode();
+    if (authMode === 'api-key') {
+      args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
+    } else {
+      args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
+    }
   }
 
   // Runtime-specific args for host gateway resolution
