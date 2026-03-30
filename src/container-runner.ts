@@ -27,6 +27,7 @@ import {
 } from './container-runtime.js';
 import { detectAuthMode } from './credential-proxy.js';
 import { validateAdditionalMounts } from './mount-security.js';
+import { readEnvFile } from './env.js';
 import { RegisteredGroup } from './types.js';
 
 // Sentinel markers for robust output parsing (must match agent-runner)
@@ -222,8 +223,10 @@ function buildContainerArgs(
   args.push('-e', `TZ=${TIMEZONE}`);
 
   // Ollama routing for cost-free local inference (takes priority)
-  const ollamaHost = process.env.OLLAMA_HOST;
-  const ollamaModel = process.env.OLLAMA_MODEL;
+  // Load from .env file (not process.env, which doesn't auto-load .env)
+  const envConfig = readEnvFile(['OLLAMA_HOST', 'OLLAMA_MODEL']);
+  const ollamaHost = envConfig.OLLAMA_HOST;
+  const ollamaModel = envConfig.OLLAMA_MODEL;
   const useOllama = ollamaHost && ollamaModel;
 
   if (useOllama) {
