@@ -5,11 +5,14 @@ import {
   ASSISTANT_NAME,
   CREDENTIAL_PROXY_PORT,
   IDLE_TIMEOUT,
+  OLLAMA_PROXY_PORT,
   POLL_INTERVAL,
   TIMEZONE,
   TRIGGER_PATTERN,
 } from './config.js';
 import { startCredentialProxy } from './credential-proxy.js';
+import { startOllamaProxy } from './ollama-proxy.js';
+import { readEnvFile } from './env.js';
 import './channels/index.js';
 import {
   getChannelFactory,
@@ -57,6 +60,7 @@ import {
   shouldDropMessage,
 } from './sender-allowlist.js';
 import { startSchedulerLoop } from './task-scheduler.js';
+import { startTelegramMonitor } from './telegram-monitor.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { logger } from './logger.js';
 
@@ -464,13 +468,13 @@ function recoverPendingMessages(): void {
   }
 }
 
-function ensureContainerSystemRunning(): void {
-  ensureContainerRuntimeRunning();
+async function ensureContainerSystemRunning(): Promise<void> {
+  await ensureContainerRuntimeRunning();
   cleanupOrphans();
 }
 
 async function main(): Promise<void> {
-  ensureContainerSystemRunning();
+  await ensureContainerSystemRunning();
   initDatabase();
   logger.info('Database initialized');
   loadState();
@@ -482,10 +486,26 @@ async function main(): Promise<void> {
     PROXY_BIND_HOST,
   );
 
+  // Start Ollama proxy if Ollama is configured
+  let ollamaProxyServer: any = null;
+  const ollamaConfig = readEnvFile(['OLLAMA_HOST', 'OLLAMA_MODEL']);
+  if (ollamaConfig.OLLAMA_HOST && ollamaConfig.OLLAMA_MODEL) {
+    ollamaProxyServer = await startOllamaProxy(
+      OLLAMA_PROXY_PORT,
+      ollamaConfig.OLLAMA_HOST,
+      ollamaConfig.OLLAMA_MODEL,
+      PROXY_BIND_HOST,
+    );
+  }
+
+  let stopMonitor: (() => void) | null = null;
+
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
+    stopMonitor?.();
     proxyServer.close();
+    ollamaProxyServer?.close();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
@@ -647,6 +667,15 @@ async function main(): Promise<void> {
       }
     },
   });
+  stopMonitor = startTelegramMonitor(async (jid, text) => {
+    const channel = findChannel(channels, jid);
+    if (!channel) {
+      logger.warn({ jid }, 'telegram-monitor: no channel owns JID');
+      return;
+    }
+    await channel.sendMessage(jid, text);
+  });
+
   queue.setProcessMessagesFn(processGroupMessages);
   recoverPendingMessages();
   startMessageLoop().catch((err) => {
