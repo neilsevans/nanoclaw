@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git remote:*)",
+      "Bash(npx tsx:*)",
+      "Bash(brew install:*)",
+      "Bash(open -a \"Docker Desktop\")",
+      "Bash(open /Applications/Docker.app)",
+      "Bash(find /Applications -maxdepth 2 -name *.app)",
+      "Bash(find / -maxdepth 5 -name \"Docker*.app\")",
+      "Bash(docker --version)",
+      "Bash(ls /Applications/Docker*)",
+      "Bash(brew uninstall:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(docker info:*)",
+      "Bash(docker run:*)",
+      "Bash(brew services:*)",
+      "Bash(docker buildx:*)",
+      "Bash(npm run:*)",
+      "Bash(bash setup.sh 2>&1)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(GIT_EDITOR=true git merge --continue 2>&1)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(launchctl list:*)",
+      "Bash(podman info:*)",
+      "Bash(podman machine:*)",
+      "Bash(launchctl unload:*)",
+      "Bash(launchctl load:*)",
+      "Bash(ollama list:*)",
+      "Bash(git merge:*)",
+      "Bash(GIT_EDITOR=true git merge --continue)",
+      "Bash(./container/build.sh)",
+      "Bash(for dir:*)",
+      "Bash(do cp:*)",
+      "Bash(cp container/agent-runner/src/index.ts \"$dir/\")",
+      "Bash(echo \"Updated $dir\")",
+      "Bash(done)"
+    ]
+  }
+}

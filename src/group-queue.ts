@@ -11,8 +11,9 @@ interface QueuedTask {
   fn: () => Promise<void>;
 }
 
-const MAX_RETRIES = 5;
+const MAX_RETRIES = 8; // 8 retries × up to 60s = ~5min window, covers watchdog recovery
 const BASE_RETRY_MS = 5000;
+const MAX_RETRY_DELAY_MS = 60000; // cap backoff at 60s per step
 
 interface GroupState {
   active: boolean;
@@ -271,7 +272,10 @@ export class GroupQueue {
       return;
     }
 
-    const delayMs = BASE_RETRY_MS * Math.pow(2, state.retryCount - 1);
+    const delayMs = Math.min(
+      BASE_RETRY_MS * Math.pow(2, state.retryCount - 1),
+      MAX_RETRY_DELAY_MS,
+    );
     logger.info(
       { groupJid, retryCount: state.retryCount, delayMs },
       'Scheduling retry with backoff',
