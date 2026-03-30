@@ -238,10 +238,14 @@ function buildContainerArgs(
     args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
   }
 
-  // TODO: Ollama integration planned for phase 2
-  // Currently passing Claude API for functionality, with cost monitoring.
-  // When ready: remove proxy routing, add OLLAMA_HOST/OLLAMA_MODEL,
-  // and modify agent-runner to detect and use local Ollama instead.
+  // Ollama routing for cost-free local inference
+  // Agent-runner exposes ollama_generate MCP tool. CLAUDE.md instructs when to use it.
+  const ollamaHost = process.env.OLLAMA_HOST;
+  const ollamaModel = process.env.OLLAMA_MODEL;
+  if (ollamaHost && ollamaModel) {
+    args.push('-e', `OLLAMA_HOST=${ollamaHost}`);
+    args.push('-e', `OLLAMA_MODEL=${ollamaModel}`);
+  }
 
   // Runtime-specific args for host gateway resolution
   args.push(...hostGatewayArgs());
