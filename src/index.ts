@@ -361,20 +361,31 @@ async function runAgent(
           setSession(group.folder, output.newSessionId);
         }
 
+        // Record agent completion time at first output (Spec 11)
+        const outputTime = Date.now();
+        const timing = messageTimings.get(chatJid);
+        if (timing) {
+          if (!timing.agentCompletedAt) {
+            timing.agentCompletedAt = outputTime;
+            logger.debug(
+              {
+                chatJid,
+                duration: outputTime - timing.agentStartedAt,
+              },
+              '[Spec 11] Agent completed (first output)',
+            );
+          }
+        }
+
         // Record response sent time for latency measurement (Spec 11)
         const responseSentTime = Date.now();
-        const timing = messageTimings.get(chatJid);
         if (timing) {
           if (!timing.responseSentAt) {
             timing.responseSentAt = responseSentTime;
             logger.debug(
               {
                 chatJid,
-                duration:
-                  responseSentTime -
-                  (timing.agentCompletedAt ||
-                    timing.agentStartedAt ||
-                    timing.receivedAt),
+                duration: responseSentTime - outputTime,
               },
               '[Spec 11] Response sent to Telegram',
             );
@@ -418,21 +429,6 @@ async function runAgent(
         queue.registerProcess(chatJid, proc, containerName, group.folder),
       wrappedOnOutput,
     );
-
-    // Record agent completion time for latency measurement (Spec 11)
-    const agentCompletedTime = Date.now();
-    if (timing) {
-      timing.agentCompletedAt = agentCompletedTime;
-      logger.debug(
-        { chatJid, duration: agentCompletedTime - agentStartTime },
-        '[Spec 11] Agent completed',
-      );
-    } else {
-      logger.warn(
-        { chatJid },
-        '[Spec 11] No timing entry when agent completes',
-      );
-    }
 
     if (output.newSessionId) {
       sessions[group.folder] = output.newSessionId;
@@ -564,19 +560,12 @@ async function startMessageLoop(): Promise<void> {
           const logTimingDelayed = () => {
             const timing = messageTimings.get(chatJid);
             if (timing) {
-              // Ensure all timestamps are populated before logging
+              // Ensure responseSentAt is populated before logging
               if (!timing.responseSentAt) {
                 timing.responseSentAt = Date.now();
                 logger.debug(
                   { chatJid },
                   '[Spec 11] Auto-set responseSentAt (was missing)',
-                );
-              }
-              if (!timing.agentCompletedAt) {
-                timing.agentCompletedAt = timing.responseSentAt || Date.now();
-                logger.debug(
-                  { chatJid },
-                  '[Spec 11] Auto-set agentCompletedAt (was missing)',
                 );
               }
               logLatency(timing);
