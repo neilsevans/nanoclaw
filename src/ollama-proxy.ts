@@ -214,10 +214,7 @@ export function startOllamaProxy(
         const keepAliveRequest = httpRequest(options, (res) => {
           res.on('data', () => {}); // Drain response
           res.on('end', () => {
-            logger.debug(
-              { model: ollamaModel },
-              'Ollama keep-alive ping sent',
-            );
+            logger.debug({ model: ollamaModel }, 'Ollama keep-alive ping sent');
           });
         });
 

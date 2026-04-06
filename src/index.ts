@@ -96,9 +96,17 @@ function logLatency(timing: MessageTiming): void {
 
   // Calculate durations, only if timestamps exist
   const planningDuration = agentStart ? agentStart - received : 0;
-  const agentDuration = agentStart && agentComplete ? agentComplete - agentStart : 0;
-  const sendDuration = agentComplete && responseSent ? responseSent - agentComplete : 0;
-  const totalDuration = responseSent ? responseSent - received : (agentComplete ? agentComplete - received : (agentStart ? agentStart - received : 0));
+  const agentDuration =
+    agentStart && agentComplete ? agentComplete - agentStart : 0;
+  const sendDuration =
+    agentComplete && responseSent ? responseSent - agentComplete : 0;
+  const totalDuration = responseSent
+    ? responseSent - received
+    : agentComplete
+      ? agentComplete - received
+      : agentStart
+        ? agentStart - received
+        : 0;
 
   logger.info(
     {
@@ -360,12 +368,22 @@ async function runAgent(
           if (!timing.responseSentAt) {
             timing.responseSentAt = responseSentTime;
             logger.debug(
-              { chatJid, duration: responseSentTime - (timing.agentCompletedAt || timing.agentStartedAt || timing.receivedAt) },
+              {
+                chatJid,
+                duration:
+                  responseSentTime -
+                  (timing.agentCompletedAt ||
+                    timing.agentStartedAt ||
+                    timing.receivedAt),
+              },
               '[Spec 11] Response sent to Telegram',
             );
           }
         } else {
-          logger.warn({ chatJid }, '[Spec 11] No timing entry when response sent');
+          logger.warn(
+            { chatJid },
+            '[Spec 11] No timing entry when response sent',
+          );
         }
 
         await onOutput(output);
@@ -379,7 +397,10 @@ async function runAgent(
     timing.agentStartedAt = agentStartTime;
     logger.debug({ chatJid }, '[Spec 11] Agent started');
   } else {
-    logger.warn({ chatJid }, '[Spec 11] No timing entry found when agent starts');
+    logger.warn(
+      { chatJid },
+      '[Spec 11] No timing entry found when agent starts',
+    );
   }
 
   try {
@@ -407,7 +428,10 @@ async function runAgent(
         '[Spec 11] Agent completed',
       );
     } else {
-      logger.warn({ chatJid }, '[Spec 11] No timing entry when agent completes');
+      logger.warn(
+        { chatJid },
+        '[Spec 11] No timing entry when agent completes',
+      );
     }
 
     if (output.newSessionId) {
@@ -472,7 +496,10 @@ async function startMessageLoop(): Promise<void> {
             messageId: msg.id,
             receivedAt,
           });
-          logger.debug({ chatJid: msg.chat_jid }, '[Spec 11] Message received, timing started');
+          logger.debug(
+            { chatJid: msg.chat_jid },
+            '[Spec 11] Message received, timing started',
+          );
         }
 
         for (const [chatJid, groupMessages] of messagesByGroup) {
@@ -540,16 +567,25 @@ async function startMessageLoop(): Promise<void> {
               // Ensure all timestamps are populated before logging
               if (!timing.responseSentAt) {
                 timing.responseSentAt = Date.now();
-                logger.debug({ chatJid }, '[Spec 11] Auto-set responseSentAt (was missing)');
+                logger.debug(
+                  { chatJid },
+                  '[Spec 11] Auto-set responseSentAt (was missing)',
+                );
               }
               if (!timing.agentCompletedAt) {
                 timing.agentCompletedAt = timing.responseSentAt || Date.now();
-                logger.debug({ chatJid }, '[Spec 11] Auto-set agentCompletedAt (was missing)');
+                logger.debug(
+                  { chatJid },
+                  '[Spec 11] Auto-set agentCompletedAt (was missing)',
+                );
               }
               logLatency(timing);
               messageTimings.delete(chatJid);
             } else {
-              logger.warn({ chatJid }, '[Spec 11] Timing entry missing at log time');
+              logger.warn(
+                { chatJid },
+                '[Spec 11] Timing entry missing at log time',
+              );
             }
           };
 
