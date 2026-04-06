@@ -76,6 +76,49 @@ let messageLoopRunning = false;
 const channels: Channel[] = [];
 const queue = new GroupQueue();
 
+// Timing instrumentation for Telegram latency measurement (Spec 11)
+interface MessageTiming {
+  chatJid: string;
+  messageId: string;
+  receivedAt: number;
+  agentStartedAt?: number;
+  agentCompletedAt?: number;
+  responseSentAt?: number;
+}
+
+const messageTimings = new Map<string, MessageTiming>();
+
+function logLatency(timing: MessageTiming): void {
+  const received = timing.receivedAt;
+  const agentStart = timing.agentStartedAt;
+  const agentComplete = timing.agentCompletedAt;
+  const responseSent = timing.responseSentAt;
+
+  // Calculate durations, only if timestamps exist
+  const planningDuration = agentStart ? agentStart - received : 0;
+  const agentDuration = agentStart && agentComplete ? agentComplete - agentStart : 0;
+  const sendDuration = agentComplete && responseSent ? responseSent - agentComplete : 0;
+  const totalDuration = responseSent ? responseSent - received : (agentComplete ? agentComplete - received : (agentStart ? agentStart - received : 0));
+
+  logger.info(
+    {
+      chatJid: timing.chatJid,
+      totalMs: totalDuration,
+      planningMs: planningDuration,
+      agentMs: agentDuration,
+      sendMs: sendDuration,
+      hasAllTimestamps: !!(agentStart && agentComplete && responseSent),
+      timestamps: {
+        receivedAt: timing.receivedAt,
+        agentStartedAt: timing.agentStartedAt,
+        agentCompletedAt: timing.agentCompletedAt,
+        responseSentAt: timing.responseSentAt,
+      },
+    },
+    'Message latency breakdown',
+  );
+}
+
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
   const agentTs = getRouterState('last_agent_timestamp');
@@ -302,16 +345,42 @@ async function runAgent(
     new Set(Object.keys(registeredGroups)),
   );
 
-  // Wrap onOutput to track session ID from streamed results
+  // Wrap onOutput to track session ID from streamed results and latency (Spec 11)
   const wrappedOnOutput = onOutput
     ? async (output: ContainerOutput) => {
         if (output.newSessionId) {
           sessions[group.folder] = output.newSessionId;
           setSession(group.folder, output.newSessionId);
         }
+
+        // Record response sent time for latency measurement (Spec 11)
+        const responseSentTime = Date.now();
+        const timing = messageTimings.get(chatJid);
+        if (timing) {
+          if (!timing.responseSentAt) {
+            timing.responseSentAt = responseSentTime;
+            logger.debug(
+              { chatJid, duration: responseSentTime - (timing.agentCompletedAt || timing.agentStartedAt || timing.receivedAt) },
+              '[Spec 11] Response sent to Telegram',
+            );
+          }
+        } else {
+          logger.warn({ chatJid }, '[Spec 11] No timing entry when response sent');
+        }
+
         await onOutput(output);
       }
     : undefined;
+
+  // Record agent start time for latency measurement (Spec 11)
+  const agentStartTime = Date.now();
+  const timing = messageTimings.get(chatJid);
+  if (timing) {
+    timing.agentStartedAt = agentStartTime;
+    logger.debug({ chatJid }, '[Spec 11] Agent started');
+  } else {
+    logger.warn({ chatJid }, '[Spec 11] No timing entry found when agent starts');
+  }
 
   try {
     const output = await runContainerAgent(
@@ -328,6 +397,18 @@ async function runAgent(
         queue.registerProcess(chatJid, proc, containerName, group.folder),
       wrappedOnOutput,
     );
+
+    // Record agent completion time for latency measurement (Spec 11)
+    const agentCompletedTime = Date.now();
+    if (timing) {
+      timing.agentCompletedAt = agentCompletedTime;
+      logger.debug(
+        { chatJid, duration: agentCompletedTime - agentStartTime },
+        '[Spec 11] Agent completed',
+      );
+    } else {
+      logger.warn({ chatJid }, '[Spec 11] No timing entry when agent completes');
+    }
 
     if (output.newSessionId) {
       sessions[group.folder] = output.newSessionId;
@@ -383,6 +464,15 @@ async function startMessageLoop(): Promise<void> {
           } else {
             messagesByGroup.set(msg.chat_jid, [msg]);
           }
+
+          // Record message received time for latency measurement (Spec 11)
+          const receivedAt = Date.now();
+          messageTimings.set(msg.chat_jid, {
+            chatJid: msg.chat_jid,
+            messageId: msg.id,
+            receivedAt,
+          });
+          logger.debug({ chatJid: msg.chat_jid }, '[Spec 11] Message received, timing started');
         }
 
         for (const [chatJid, groupMessages] of messagesByGroup) {
@@ -441,6 +531,29 @@ async function startMessageLoop(): Promise<void> {
             // No active container — enqueue for a new one
             queue.enqueueMessageCheck(chatJid);
           }
+
+          // Log latency after a delay to ensure response is sent (Spec 11)
+          // Clear timing after logging to prevent memory leak
+          const logTimingDelayed = () => {
+            const timing = messageTimings.get(chatJid);
+            if (timing) {
+              // Ensure all timestamps are populated before logging
+              if (!timing.responseSentAt) {
+                timing.responseSentAt = Date.now();
+                logger.debug({ chatJid }, '[Spec 11] Auto-set responseSentAt (was missing)');
+              }
+              if (!timing.agentCompletedAt) {
+                timing.agentCompletedAt = timing.responseSentAt || Date.now();
+                logger.debug({ chatJid }, '[Spec 11] Auto-set agentCompletedAt (was missing)');
+              }
+              logLatency(timing);
+              messageTimings.delete(chatJid);
+            } else {
+              logger.warn({ chatJid }, '[Spec 11] Timing entry missing at log time');
+            }
+          };
+
+          setTimeout(logTimingDelayed, 5000);
         }
       }
     } catch (err) {

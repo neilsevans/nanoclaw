@@ -236,6 +236,8 @@ function buildContainerArgs(
     );
     args.push('-e', `OLLAMA_HOST=${ollamaHost}`);
     args.push('-e', `OLLAMA_MODEL=${ollamaModel}`);
+    // Keep Ollama model in memory for 5 minutes between requests (Spec 11 optimization)
+    args.push('-e', 'OLLAMA_KEEP_ALIVE=300s');
     // Dummy API key so Claude Code can initialize
     args.push('-e', 'ANTHROPIC_API_KEY=ollama-local-proxy');
   } else {

@@ -190,6 +190,49 @@ export function startOllamaProxy(
         { port, host, ollamaHost, ollamaModel },
         'Ollama proxy started',
       );
+
+      // Start keep-alive ping to prevent Ollama model unloading (Spec 11 optimization)
+      const keepAliveInterval = setInterval(() => {
+        const keepAliveReq = {
+          model: ollamaModel,
+          prompt: ' ', // Minimal prompt
+          stream: false,
+        };
+
+        const url = new URL(ollamaHost);
+        const options = {
+          hostname: url.hostname,
+          port: url.port,
+          path: '/api/generate',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(JSON.stringify(keepAliveReq)),
+          },
+        };
+
+        const keepAliveRequest = httpRequest(options, (res) => {
+          res.on('data', () => {}); // Drain response
+          res.on('end', () => {
+            logger.debug(
+              { model: ollamaModel },
+              'Ollama keep-alive ping sent',
+            );
+          });
+        });
+
+        keepAliveRequest.on('error', (err) => {
+          logger.warn(
+            { err, model: ollamaModel },
+            'Ollama keep-alive ping failed',
+          );
+        });
+
+        keepAliveRequest.write(JSON.stringify(keepAliveReq));
+        keepAliveRequest.end();
+      }, 120000); // Ping every 2 minutes
+
+      server.on('close', () => clearInterval(keepAliveInterval));
       resolve(server);
     });
 
