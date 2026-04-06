@@ -560,7 +560,14 @@ async function startMessageLoop(): Promise<void> {
           const logTimingDelayed = () => {
             const timing = messageTimings.get(chatJid);
             if (timing) {
-              // Ensure responseSentAt is populated before logging
+              // Ensure all timestamps are populated before logging (fallback if container crashed)
+              if (!timing.agentCompletedAt) {
+                timing.agentCompletedAt = timing.responseSentAt || Date.now();
+                logger.debug(
+                  { chatJid },
+                  '[Spec 11] Auto-set agentCompletedAt (container may have crashed)',
+                );
+              }
               if (!timing.responseSentAt) {
                 timing.responseSentAt = Date.now();
                 logger.debug(
