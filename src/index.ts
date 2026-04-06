@@ -370,7 +370,7 @@ async function runAgent(
             logger.debug(
               {
                 chatJid,
-                duration: outputTime - timing.agentStartedAt,
+                duration: outputTime - (timing.agentStartedAt || 0),
               },
               '[Spec 11] Agent completed (first output)',
             );
