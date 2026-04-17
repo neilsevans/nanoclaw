@@ -428,6 +428,17 @@ async function runQuery(
           command: 'node',
           args: [path.join(path.dirname(mcpServerPath), 'ollama-mcp-stdio.js')],
         },
+        reminders: {
+          command: 'node',
+          args: [path.join(path.dirname(mcpServerPath), 'reminders-mcp-stdio.js')],
+          env: {
+            NANOCLAW_CHAT_JID: containerInput.chatJid,
+          },
+        },
+        weather: {
+          command: 'node',
+          args: [path.join(path.dirname(mcpServerPath), 'weather-mcp-stdio.js')],
+        },
       },
       hooks: {
         PreCompact: [{ hooks: [createPreCompactHook(containerInput.assistantName)] }],

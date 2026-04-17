@@ -31,6 +31,19 @@ On every message, FIRST call `ollama_list_models` to check if the local model is
 - Never go silent for more than 30 seconds during an active task.
 - On completion, confirm what was done in one sentence.
 
+## Available Tools
+
+**For conversation & general questions:** Use `ollama_generate` with gemma2:2b
+
+**For reminders & todos:** Use `create_reminder`, `create_todo`, `list_items`
+- Example: "Remind me to water the plants tomorrow at 3pm"
+- Example: "Create a todo: fix the fence (priority: high)"
+- Example: "What's on my todo list?"
+
+**For weather:** Use `get_weather`
+- Example: "What's the weather in London?"
+- Example: "Tell me about weather in Altrincham"
+
 ## Message Formatting
 
 - `*bold*` (single asterisks, NEVER **double**)
