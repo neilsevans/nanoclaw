@@ -13,11 +13,15 @@ import {
 import { startCredentialProxy } from './credential-proxy.js';
 import { startOllamaProxy } from './ollama-proxy.js';
 import { readEnvFile } from './env.js';
+import { isGemmaFailure, callHaikuFallback } from './haiku-fallback.js';
 import './channels/index.js';
 import {
   getChannelFactory,
   getRegisteredChannelNames,
 } from './channels/registry.js';
+
+// Module-level API key for Haiku fallback
+let anthropicApiKey: string = '';
 import {
   ContainerOutput,
   runContainerAgent,
@@ -274,8 +278,21 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           ? result.result
           : JSON.stringify(result.result);
       // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
-      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+      let text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
       logger.info({ group: group.name }, `Agent output: ${raw.length} chars`);
+
+      // Check if Gemma failed and fall back to Haiku if needed
+      if (text && isGemmaFailure(text)) {
+        logger.info({ group: group.name }, `Gemma failed to answer, falling back to Haiku...`);
+        try {
+          const haikuResponse = await callHaikuFallback(prompt, [], anthropicApiKey);
+          text = haikuResponse;
+          logger.info({ group: group.name }, `Haiku fallback successful`);
+        } catch (err) {
+          logger.warn({ group: group.name }, `Haiku fallback failed, using Gemma response: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
       if (text) {
         await channel.sendMessage(chatJid, text);
         outputSentToUser = true;
@@ -642,6 +659,10 @@ async function main(): Promise<void> {
       PROXY_BIND_HOST,
     );
   }
+
+  // Read API key for Haiku fallback
+  const apiConfig = readEnvFile(['ANTHROPIC_API_KEY']);
+  anthropicApiKey = apiConfig.ANTHROPIC_API_KEY;
 
   let stopMonitor: (() => void) | null = null;
 

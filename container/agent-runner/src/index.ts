@@ -424,21 +424,22 @@ async function runQuery(
             NANOCLAW_IS_MAIN: containerInput.isMain ? '1' : '0',
           },
         },
-        ollama: {
-          command: 'node',
-          args: [path.join(path.dirname(mcpServerPath), 'ollama-mcp-stdio.js')],
-        },
-        reminders: {
-          command: 'node',
-          args: [path.join(path.dirname(mcpServerPath), 'reminders-mcp-stdio.js')],
-          env: {
-            NANOCLAW_CHAT_JID: containerInput.chatJid,
-          },
-        },
-        weather: {
-          command: 'node',
-          args: [path.join(path.dirname(mcpServerPath), 'weather-mcp-stdio.js')],
-        },
+        // ollama, reminders, weather disabled to reduce memory pressure on 16GB Mac mini
+        // ollama: {
+        //   command: 'node',
+        //   args: [path.join(path.dirname(mcpServerPath), 'ollama-mcp-stdio.js')],
+        // },
+        // reminders: {
+        //   command: 'node',
+        //   args: [path.join(path.dirname(mcpServerPath), 'reminders-mcp-stdio.js')],
+        //   env: {
+        //     NANOCLAW_CHAT_JID: containerInput.chatJid,
+        //   },
+        // },
+        // weather: {
+        //   command: 'node',
+        //   args: [path.join(path.dirname(mcpServerPath), 'weather-mcp-stdio.js')],
+        // },
       },
       hooks: {
         PreCompact: [{ hooks: [createPreCompactHook(containerInput.assistantName)] }],
