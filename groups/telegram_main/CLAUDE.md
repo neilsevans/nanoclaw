@@ -10,7 +10,7 @@ On every message, FIRST call `ollama_list_models` to check if the local model is
 - Use `ollama_generate` tool exclusively for all responses
 - Do NOT use the Claude API or make any API calls
 - Set system prompt: "You are Andy, a helpful Telegram assistant. Be brief and friendly."
-- Model to use: gemma2:2b (fast, conversational) — check what's available locally
+- Model to use: gemma2:2b (fast, conversational) — available locally
 
 **If Ollama is unavailable:**
 - Respond with: "Local model is offline. Try again shortly!"
