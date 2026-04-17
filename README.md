@@ -167,6 +167,8 @@ We don't want configuration sprawl. Every user should customize NanoClaw so that
 
 **Can I use third-party or open-source models?**
 
+By default, NanoClaw uses Claude API (Claude Haiku for cost-effective chat interactions). If you want to use a different model endpoint, you can customize it.
+
 Yes. NanoClaw supports any Claude API-compatible model endpoint. Set these environment variables in your `.env` file:
 
 ```bash
@@ -179,7 +181,7 @@ This allows you to use:
 - Open-source models hosted on [Together AI](https://together.ai), [Fireworks](https://fireworks.ai), etc.
 - Custom model deployments with Anthropic-compatible APIs
 
-Note: The model must support the Anthropic API format for best compatibility.
+Note: The model must support the Anthropic API format for best compatibility. If using Ollama, it's recommended to use it for embeddings only (e.g., with semantic ranking tasks) rather than as the primary LLM backend due to memory constraints on typical systems.
 
 **How do I debug issues?**
 
