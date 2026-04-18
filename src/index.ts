@@ -232,20 +232,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   if (missedMessages.length === 0) return true;
 
-  // For non-main groups, check if trigger is required and present
-  if (!isMainGroup && group.requiresTrigger !== false) {
-    const allowlistCfg = loadSenderAllowlist();
-    const hasTrigger = missedMessages.some(
-      (m) =>
-        TRIGGER_PATTERN.test(m.content.trim()) &&
-        (m.is_from_me || isTriggerAllowed(chatJid, m.sender, allowlistCfg)),
-    );
-    if (!hasTrigger) return true;
-  }
-
   const prompt = formatMessages(missedMessages, TIMEZONE);
 
-  // Check if this is an ops command (fast, no agent needed)
+  // Check if this is an ops command (fast, no agent needed) — bypass trigger requirement
   if (isOpsCommand(prompt)) {
     const cmdName = parseOpsCommand(prompt);
     if (cmdName) {
@@ -271,6 +260,17 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         return false;
       }
     }
+  }
+
+  // For non-main groups, check if trigger is required and present (for agent messages)
+  if (!isMainGroup && group.requiresTrigger !== false) {
+    const allowlistCfg = loadSenderAllowlist();
+    const hasTrigger = missedMessages.some(
+      (m) =>
+        TRIGGER_PATTERN.test(m.content.trim()) &&
+        (m.is_from_me || isTriggerAllowed(chatJid, m.sender, allowlistCfg)),
+    );
+    if (!hasTrigger) return true;
   }
 
   // Advance cursor so the piping path in startMessageLoop won't re-fetch
