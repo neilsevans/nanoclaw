@@ -72,15 +72,13 @@ function getClaudeCliAuth(): AuthConfig {
     );
   }
 
-  // Verify Claude CLI is authenticated
-  try {
-    execSync('claude auth status', {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-    });
-  } catch (error) {
+  // Verify Claude CLI has ANTHROPIC_AUTH_TOKEN set (OAuth token from setup-token)
+  const config = readEnvFile(['ANTHROPIC_AUTH_TOKEN']);
+  const authToken = config.ANTHROPIC_AUTH_TOKEN;
+  if (!authToken) {
     throw new Error(
-      'Claude CLI found but not authenticated. Run: claude setup-token',
+      'NANOCLAW_AUTH_METHOD=claude-cli but ANTHROPIC_AUTH_TOKEN not set in .env. ' +
+        'Run: claude setup-token',
     );
   }
 
@@ -90,12 +88,9 @@ function getClaudeCliAuth(): AuthConfig {
     description: 'Claude CLI (Pro subscription quota)',
     cliVersion: cliVersion,
     healthCheck: () => {
-      try {
-        execSync('claude auth status', { stdio: 'pipe' });
-        return true;
-      } catch {
-        return false;
-      }
+      // Check if auth token is present (sufficient indication that Claude CLI is set up)
+      const cfg = readEnvFile(['ANTHROPIC_AUTH_TOKEN']);
+      return Boolean(cfg.ANTHROPIC_AUTH_TOKEN);
     },
   };
 }
