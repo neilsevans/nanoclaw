@@ -76,6 +76,14 @@ Three-layer memory architecture ensures no learnings are lost:
 - Triggered: Every ~5K tokens (Claude Code writes continuously)
 - Captures: Learnings, patterns, decisions from development sessions
 - Persistence: Session-local (stays on disk until deleted)
+- Available: Automatically loaded at session start
+
+**Layer 1b: Session Memory** (Automatic, per-session)
+- Location: `~/.claude/projects/-Users-clawdia-nanoclaw/[session-id]/session-memory/summary.md`
+- Triggered: Each unique Claude Code session gets a session ID
+- Captures: Session-specific summary before context compression
+- Persistence: Session-local (survives within session boundaries)
+- Isolation: Prevents file conflicts when multiple sessions run in parallel
 
 **Layer 2: PreCompact Hooks** (Automatic, at compression)
 - Trigger: Before `/compact` (manual or automatic at ~80% context)
@@ -122,6 +130,47 @@ After the session:
 - If changes exist, you're prompted to keep or discard the worktree
 
 Memory is still shared across all sessions via Auto Memory layer, so learnings from parallel work are automatically captured.
+
+## Testing Memory Across Parallel Sessions
+
+To verify memory management works correctly with multiple concurrent sessions:
+
+**1. Open two Warp tabs**
+
+```bash
+# Tab 1
+cd ~/nanoclaw
+claude
+
+# Tab 2 (while Tab 1 is running)
+cd ~/nanoclaw
+claude --worktree feature-test
+```
+
+**2. Give each session a task**
+
+Tab 1: "Show the recent git commits"
+Tab 2: "List the package.json dependencies"
+
+**3. Both should complete without errors**
+
+Verify:
+- ✅ No "file already locked" errors
+- ✅ Both sessions produce output
+- ✅ No memory corruption
+
+**4. Run checkpoint to back up state**
+
+```bash
+./cp "test: verify parallel sessions"
+```
+
+**5. Verify backup exists**
+
+```bash
+ls -lh .claude/memory-backups/ | tail -1
+# Should show: 2026-04-29-HHMMSS.tar.gz
+```
 
 ## Troubleshooting
 
